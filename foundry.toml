@@ -1,0 +1,50 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+cache_path = "cache"
+solc = "0.8.27"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "erc6551/=lib/contracts/lib/erc6551/src/",
+    "tokenbound/=lib/contracts/src/",
+    "lib/contracts/:@openzeppelin/=lib/contracts/lib/openzeppelin-contracts/",
+    "lib/contracts/:openzeppelin-contracts/=lib/contracts/lib/openzeppelin-contracts/",
+    "lib/contracts/:account-abstraction/=lib/contracts/lib/account-abstraction/contracts/",
+]
+
+[profile.default.fuzz]
+runs = 500
+
+[profile.ci]
+fuzz.runs = 10000
+
+[profile.audit]
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+[profile.base]
+optimizer_runs = 1000000
+
+[lint]
+lint_on_build = true
+
+[invariant]
+runs = 256
+depth = 128
+fail_on_revert = false
+
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
+base      = "${BASE_RPC_URL}"
+
+[etherscan]
+base = { key = "${BASESCAN_API_KEY}", chain = 8453, url = "https://api.basescan.org/api" }
