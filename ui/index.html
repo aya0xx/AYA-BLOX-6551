@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AYA-BLOX-6551</title>
+
+  <link rel="stylesheet" href="css/styles.css" />
+  <script>document.documentElement.classList.add('loading');</script>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header id="topbar"></header>
+
+  <!-- Layout -->
+  <div id="layout">
+    <nav id="sidenav" aria-label="Main navigation"></nav>
+    <main id="content"></main>
+  </div>
+
+  <!-- Loading overlay — splash mode on init, regular mode for mint/connect -->
+  <div id="loading-overlay" class="is-splash" role="status" aria-label="Loading, please wait">
+    <div id="splash-content">
+      <span class="splash-brand">AYA-BLOX-6551</span>
+      <div class="splash-rule"></div>
+      <span class="splash-status">INITIALIZING</span>
+      <span class="splash-network">LOCAL ANVIL · 31337</span>
+    </div>
+    <div class="loading-row">
+      <p id="loading-text" class="loading-text">LOADING</p>
+      <div class="loading-dots">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+      </div>
+    </div>
+    <p class="loading-hint">PLEASE WAIT</p>
+  </div>
+
+  <!-- Confirm dialog -->
+  <div id="confirm-dialog"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="confirm-title"
+       aria-describedby="confirm-msg">
+    <div id="confirm-box">
+      <div>
+        <p id="confirm-title" class="confirm-title"></p>
+        <p id="confirm-msg"   class="confirm-msg"></p>
+      </div>
+      <div class="confirm-btns">
+        <button data-action="confirm-ok"     class="confirm-ok">CONFIRM</button>
+        <button data-action="confirm-cancel" class="confirm-cancel">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mint base unit dialog -->
+  <div id="mint-base-dialog"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="mb-title"
+       aria-describedby="mb-body">
+    <div id="mint-base-box">
+      <div class="mb-body" id="mb-body">
+        <div>
+          <p class="mb-eyebrow">CONFIRM ACTION</p>
+          <p class="mb-title" id="mb-title">MINT BASE UNIT</p>
+        </div>
+        <div class="mb-rows">
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">ERC-721 TOKEN MINTED</span>
+            <span class="mb-row-tag">NON-BURNABLE</span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">TBA WALLET CREATED</span>
+            <span class="mb-row-tag">ERC-6551</span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">4 – 8 SLOTS UNLOCKED</span>
+            <span class="mb-row-tag">TYPE ASSIGNED ON MINT</span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">SCORING ACTIVATED</span>
+            <span class="mb-row-tag">UP TO 36 PTS</span>
+          </div>
+        </div>
+        <div class="mb-cost">
+          <span class="mb-cost-label">TOTAL COST</span>
+          <span class="mb-cost-val" id="mb-cost-val"></span>
+        </div>
+      </div>
+      <div class="mb-actions">
+        <button data-action="confirm-ok"     class="confirm-ok">CONFIRM MINT</button>
+        <button data-action="confirm-cancel" class="confirm-cancel">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mint sub unit dialog -->
+  <div id="mint-sub-dialog"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="ms-title">
+    <div id="mint-sub-box">
+      <div class="mb-body">
+        <div>
+          <p class="mb-eyebrow">CONFIRM ACTION</p>
+          <p class="mb-title" id="ms-title">MINT SUB UNIT</p>
+          <p class="ms-sub"   id="ms-sub"></p>
+        </div>
+        <div class="mb-rows">
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">MINTED INTO TBA WALLET</span>
+            <span class="mb-row-tag">ERC-6551</span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">NON-TRANSFERABLE</span>
+            <span class="mb-row-tag">MINT-ONLY</span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title" id="ms-slot-row"></span>
+            <span class="mb-row-tag"   id="ms-slot-remaining"></span>
+          </div>
+          <div class="mb-row">
+            <div class="mb-dot"></div>
+            <span class="mb-row-title">SCORE INCREASES</span>
+            <span class="mb-row-tag"   id="ms-score-tag"></span>
+          </div>
+        </div>
+        <div class="mb-cost">
+          <span class="mb-cost-label">TOTAL COST</span>
+          <span class="mb-cost-val"   id="ms-cost-val"></span>
+        </div>
+      </div>
+      <div class="mb-actions">
+        <button data-action="confirm-ok"     class="confirm-ok">CONFIRM MINT</button>
+        <button data-action="confirm-cancel" class="confirm-cancel">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status column — bottom-left persistent elements -->
+  <div id="status-col">
+    <div id="notification"  aria-live="assertive" aria-atomic="true"></div>
+    <div id="sub-feedback"  aria-live="polite"></div>
+    <div id="mint-feedback" aria-live="polite"></div>
+    <div id="wallet-status" aria-live="polite"></div>
+  </div>
+
+  <!-- Error card list — bottom-right · hard errors · persists until × dismissed -->
+  <div id="err-card-list" aria-live="assertive"></div>
+
+  <!-- Mobile gate — shown at ≤1100px, replaces full UI -->
+  <div id="mobile-gate" aria-label="Desktop required">
+    <div class="mg-wrap">
+      <div class="mg-card">
+        <p class="mg-card-title">AYA-BLOX-6551</p>
+        <div class="mg-card-rule"></div>
+        <div class="mg-card-row">
+          <span class="mg-card-key">PROTOCOL</span>
+          <span class="mg-card-val">ERC-721 + ERC-6551</span>
+        </div>
+        <div class="mg-card-row">
+          <span class="mg-card-key">METADATA</span>
+          <span class="mg-card-val">ON-CHAIN SVG</span>
+        </div>
+        <div class="mg-card-row">
+          <span class="mg-card-key">SCORING</span>
+          <span class="mg-card-val">DETERMINISTIC</span>
+        </div>
+        <div class="mg-card-row">
+          <span class="mg-card-key">SUB UNITS</span>
+          <span class="mg-card-val">MINT-ONLY</span>
+        </div>
+        <div class="mg-card-rule"></div>
+        <div class="mg-card-row">
+          <span class="mg-card-key">NETWORK</span>
+          <span class="mg-card-val">LOCAL ANVIL · 31337</span>
+        </div>
+      </div>
+      <div class="mg-notice">
+        <p class="mg-notice-label">DESKTOP REQUIRED</p>
+        <p class="mg-notice-text">
+          THIS DEMO REQUIRES A<br/>
+          DESKTOP BROWSER<br/>
+          MIN 1100PX WIDTH
+        </p>
+      </div>
+      <a href="https://github.com/aya0xx/aya-blox-6551" target="_blank" rel="noopener" class="mg-link">
+        GITHUB.COM/AYA0XX/AYA-BLOX-6551
+      </a>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', () => { if (!window._intentionalDisconnect) window.location.reload(); });
+      window.ethereum.on('chainChanged',    () => window.location.reload());
+    }
+  </script>
+
+</body>
+</html>
