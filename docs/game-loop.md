@@ -54,4 +54,4 @@ The new owner inherits the score and continues filling remaining slots from wher
 
 ## Why ERC-6551
 
-ERC-721 alone gives an NFT an owner. ERC-6551 gives an NFT a wallet — a smart contract account with its own address, capable of holding assets. When the NFT transfers, the wallet's address does not change; only the controlling owner does. This is what makes the carry mechanic possible: the Sub Units live inside the wallet, not in the player's inventory, so they follow the NFT automatically.
+ERC-721 alone gives an NFT an owner. ERC-6551 gives an NFT a wallet — a smart contract account with its own address, capable of holding assets. When the NFT transfers, the wallet's address does not change; only the controlling owner does. This is what makes the carry mechanic possible: the Sub Units live inside the wallet, not at the player's address, so they follow the NFT automatically.
