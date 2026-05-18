@@ -56,4 +56,4 @@ All findings are documented in the tables above.
 
 ## Reporting
 
-To report a vulnerability: open a GitHub issue with `[SECURITY]` in the title.
+To report a vulnerability: use GitHub's private vulnerability reporting — Security tab → Report a vulnerability.
