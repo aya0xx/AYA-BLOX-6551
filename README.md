@@ -34,7 +34,7 @@ Deployed and verified on Base mainnet.
        |
        v
   [4] SLOT SCORED (slot N = N pts)
-       +-- slots remaining --> back to [3]
+       +-- if slots remaining --> back to [3]
        |
        v  all slots filled
   [5] BASE UNIT COMPLETED
