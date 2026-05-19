@@ -7,10 +7,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 /// @author AYA0X.ETH
 /// @notice Pure SVG building utilities for on-chain BaseUnit and SubUnit token metadata.
 library SVGRenderer {
-    uint256 private constant BOX_SIZE    = 36;
-    uint256 private constant BOX_GAP     = 8;
-    uint256 private constant GRID_X      = 20;
-    uint256 private constant GRID_Y      = 155;
+    uint256 private constant BOX_SIZE = 36;
+    uint256 private constant BOX_GAP = 8;
+    uint256 private constant GRID_X = 20;
+    uint256 private constant GRID_Y = 155;
     uint256 private constant COLS_PER_ROW = 4;
 
     /// @notice Renders a slot grid as concatenated SVG rect and text elements.

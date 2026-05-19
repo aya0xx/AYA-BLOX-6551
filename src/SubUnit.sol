@@ -409,7 +409,15 @@ contract SubUnit is ERC721, ReentrancyGuard {
     /// @notice Disabled. Sub units are non-transferable — operator approvals serve no purpose.
     /// @dev Always reverts with {ApprovalsDisabled}. Overrides ERC721.setApprovalForAll() to close
     ///      the operator approval pathway alongside _update's mint-only guard.
-    function setApprovalForAll(address /*operator*/, bool /*approved*/) public pure override {
+    function setApprovalForAll(
+        address,
+        /*operator*/
+        bool /*approved*/
+    )
+        public
+        pure
+        override
+    {
         revert ApprovalsDisabled();
     }
 

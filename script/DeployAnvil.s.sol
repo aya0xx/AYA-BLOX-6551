@@ -23,13 +23,13 @@ import {SubUnit} from "../src/SubUnit.sol";
 contract DeployAnvil is Script {
     /// @dev Deployment parameters. Mirror the constructor arguments expected by BaseUnit and SubUnit.
     ///      MAX_SUPPLY is set to 1000 for local testing — well below the mainnet value of 10_000.
-    uint256 constant TYPE_LIMIT_0         = 4;
-    uint256 constant TYPE_LIMIT_1         = 6;
-    uint256 constant TYPE_LIMIT_2         = 8;
-    uint256 constant MAX_SUPPLY           = 1000;
+    uint256 constant TYPE_LIMIT_0 = 4;
+    uint256 constant TYPE_LIMIT_1 = 6;
+    uint256 constant TYPE_LIMIT_2 = 8;
+    uint256 constant MAX_SUPPLY = 1000;
     uint256 constant MAX_UNITS_PER_WALLET = 5;
-    uint256 constant BASE_UNIT_PRICE      = 0.0003 ether;
-    uint256 constant SUB_UNIT_PRICE       = 0.0001 ether;
+    uint256 constant BASE_UNIT_PRICE = 0.0003 ether;
+    uint256 constant SUB_UNIT_PRICE = 0.0001 ether;
 
     /// @notice Deploys the full AYA-BLOX-6551 system to the local Anvil chain.
     /// @dev Reads TREASURY_ADDRESS from the environment. Deploys ERC6551Registry,
@@ -42,7 +42,7 @@ contract DeployAnvil is Script {
 
         // Deploy ERC-6551 infrastructure (Anvil only — no canonical addresses here)
         ERC6551Registry registry = new ERC6551Registry();
-        ERC6551Account  tbaImpl  = new ERC6551Account();
+        ERC6551Account tbaImpl = new ERC6551Account();
 
         // Deploy AYA-BLOX-6551 contracts
         BaseUnit baseUnit = new BaseUnit(
