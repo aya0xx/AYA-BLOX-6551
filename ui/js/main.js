@@ -319,7 +319,7 @@ function buildAboutView() {
         ${dim('NETWORK',  'LOCAL ANVIL')}
         ${dim('CHAIN ID', '31337')}
         ${dim('RPC',      'http://127.0.0.1:8545')}
-        ${link('SOURCE', 'https://github.com/aya0xx/aya-blox-6551')}
+        ${link('SOURCE', 'https://github.com/aya0xx/AYA-BLOX-6551')}
       </div>
     </div>`;
 }
@@ -333,9 +333,7 @@ function _networkBadge() {
   const id = State.chainId;
   if (!id) return '';
   const nets = {
-    31337:    { label: 'ANVIL',       cls: 'nb-tag--anvil'   },
-    11155111: { label: 'SEPOLIA',     cls: 'nb-tag--sepolia'  },
-    8453:     { label: 'BASE',        cls: 'nb-tag--base'     },
+    31337: { label: 'ANVIL', cls: 'nb-tag--anvil' },
   };
   const net = nets[id];
   return net

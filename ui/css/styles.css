@@ -152,8 +152,6 @@
       line-height: 1; white-space: nowrap; flex-shrink: 0;
     }
     .nb-tag--anvil       { color: #FFB800; background: rgba(255,184,0,0.08);   border-color: rgba(255,184,0,0.20); }
-    .nb-tag--sepolia     { color: #A78BFA; background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.20); }
-    .nb-tag--base        { color: #4F9EFF; background: rgba(79,158,255,0.08);  border-color: rgba(79,158,255,0.20); }
     .nb-tag--unsupported { color: #FF4444; background: rgba(255,68,68,0.08);   border-color: rgba(255,68,68,0.20); }
     .pipe      { width:2px; height: var(--topbar-pipe-h); background:rgba(255,255,255,0.1); flex-shrink:0; }
     .lbl       { color:rgba(255,255,255,0.58); font-size: var(--text-base); text-transform:uppercase; letter-spacing:.12em; white-space:nowrap; }
