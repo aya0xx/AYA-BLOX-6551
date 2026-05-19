@@ -32,7 +32,7 @@ Local development interface for the AYA-BLOX-6551 contract system.
    http://127.0.0.1:8545
    ```
 
-3. Deploy contracts
+3. Deploy contracts (from repo root)
    ```
    cp .env.example .env
    source .env
@@ -77,7 +77,7 @@ ethers.js v6 · vanilla JS · custom CSS · JetBrains Mono · no build step
 
 ## Restart
 
-Stop `anvil`, start a fresh instance, and re-run the deploy script from step 3.
+Stop `anvil`, return to repo root, start a fresh instance, and re-run the deploy script from step 3.
 Contracts redeploy to the same deterministic addresses — no MetaMask
 reconfiguration needed.
 
