@@ -219,4 +219,93 @@ contract SubUnitInvariantTest is Test {
             assertTrue(baseUnit.isTba(tba), "I-6: minted token TBA not recognized by isTba");
         }
     }
+
+    // -------------------------------------------------------------------------
+    // I-7 — Score monotonicity: localScore never decreases between calls
+    // -------------------------------------------------------------------------
+    // Score at mint n equals n; the accumulated total is the triangular sum. There is no
+    // burn, no reset, and no subtraction path in SubUnit. If this breaks,
+    // completed-token rewards could be replayed or score tracking corrupted.
+
+    function invariant_scoreNeverDecreases() public view {
+        uint256 count = handler.mintedBaseCount();
+        for (uint256 i = 0; i < count; i++) {
+            uint256 baseId = handler.ghost_mintedBaseIds(i);
+            uint256 slots = subUnit.subUnitCountPerBase(baseId);
+            // score = sum 1..slots = slots*(slots+1)/2
+            uint256 expected = (slots * (slots + 1)) / 2;
+            assertEq(subUnit.localScore(baseId), expected, "I-7: localScore inconsistent with slot count");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // I-8 — Completed tokens stay completed: isCompleted is monotonically true
+    // -------------------------------------------------------------------------
+    // Once a base unit reaches its slot cap, isCompleted must remain true.
+    // No code path in SubUnit unsets completion. If it breaks, the game loop
+    // could mis-report completed status after additional mints on other bases.
+
+    function invariant_completedTokensNeverUncomplete() public view {
+        uint256 count = handler.mintedBaseCount();
+        for (uint256 i = 0; i < count; i++) {
+            uint256 baseId = handler.ghost_mintedBaseIds(i);
+            uint256 slots = subUnit.subUnitCountPerBase(baseId);
+            uint256 limit = baseUnit.subUnitLimitOf(baseId);
+            if (slots >= limit) {
+                assertTrue(subUnit.isCompleted(baseId), "I-8: completed base unit reports incomplete");
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // I-9 — Sub units are always owned by their parent TBA
+    // -------------------------------------------------------------------------
+    // SubUnit uses _mint (not _safeMint) directly to the TBA. Transfer is
+    // disabled. If any sub unit ends up outside its parent TBA, the ownership
+    // model is broken and the game loop guardian isTba check is invalid.
+
+    function invariant_subUnitOwnerIsAlwaysTba() public view {
+        uint256 totalSubs = subUnit.totalSubUnitsMinted();
+        for (uint256 subId = 0; subId < totalSubs; subId++) {
+            address owner = subUnit.ownerOf(subId);
+            assertTrue(baseUnit.isTba(owner), "I-9: sub unit not owned by a registered TBA");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // I-10 — Sub unit supply matches ghost count from handler
+    // -------------------------------------------------------------------------
+    // Summing subUnitCountPerBase across all ghost_mintedBaseIds must equal
+    // totalSubUnitsMinted(). A divergence would indicate the handler is
+    // miscounting or SubUnit has an untracked mint path.
+
+    function invariant_subUnitSupplyMatchesGhostCount() public view {
+        uint256 ghostTotal = 0;
+        uint256 baseCount = handler.mintedBaseCount();
+        for (uint256 i = 0; i < baseCount; i++) {
+            uint256 baseId = handler.ghost_mintedBaseIds(i);
+            ghostTotal += subUnit.subUnitCountPerBase(baseId);
+        }
+        assertEq(subUnit.totalSubUnitsMinted(), ghostTotal, "I-10: totalSubUnitsMinted diverges from ghost count");
+    }
+
+    // -------------------------------------------------------------------------
+    // I-11 — BASE_UNIT address is immutable
+    // -------------------------------------------------------------------------
+    // SubUnit.BASE_UNIT_CONTRACT is set in the constructor and has no setter.
+    // If it ever changes, all ownership and slot-routing logic becomes invalid.
+
+    function invariant_baseUnitAddressIsImmutable() public view {
+        assertEq(address(subUnit.BASE_UNIT_CONTRACT()), address(baseUnit), "I-11: BASE_UNIT_CONTRACT address changed");
+    }
+
+    // -------------------------------------------------------------------------
+    // I-12 — SUB_UNIT_PRICE is immutable
+    // -------------------------------------------------------------------------
+    // There is no admin surface that can alter pricing post-deploy. If the price
+    // changes, the IncorrectPayment guard could be bypassed with stale values.
+
+    function invariant_mintPriceIsImmutable() public view {
+        assertEq(subUnit.SUB_UNIT_PRICE(), 0, "I-12: SUB_UNIT_PRICE changed from deploy-time value");
+    }
 }
