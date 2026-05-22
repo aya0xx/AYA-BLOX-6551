@@ -863,6 +863,133 @@ contract SubUnitTest is Test {
         assertEq(subUnit.totalSubUnitsMinted(), 2);
         vm.stopPrank();
     }
+
+    // -------------------------------------------------------------------------
+    // Immutable getter return values — all 3 SubUnit constructor params
+    // -------------------------------------------------------------------------
+
+    function test_baseUnit_returnsConstructorValue() public view {
+        assertEq(address(subUnit.BASE_UNIT_CONTRACT()), address(baseUnit));
+    }
+
+    function test_mintPrice_returnsConstructorValue() public view {
+        assertEq(subUnit.SUB_UNIT_PRICE(), 0);
+    }
+
+    function test_treasury_returnsConstructorValue() public view {
+        assertEq(subUnit.TREASURY(), treasury);
+    }
+
+    // -------------------------------------------------------------------------
+    // Score and completion — fresh state and per-type increment
+    // -------------------------------------------------------------------------
+
+    function test_scoreOf_freshBase_returnsZero() public view {
+        assertEq(subUnit.localScore(baseUnitId), 0);
+    }
+
+    function test_isCompleted_freshBase_returnsFalse() public view {
+        assertFalse(subUnit.isCompleted(baseUnitId));
+    }
+
+    function test_mintSubUnit_type1_incrementsScore() public {
+        vm.prank(alice);
+        uint256 type1BaseId = baseUnit.mintBaseUnit(); // token 1 → type 1
+
+        vm.prank(alice);
+        subUnit.mintSubUnit(type1BaseId); // first slot → score 1
+
+        assertEq(subUnit.localScore(type1BaseId), 1);
+    }
+
+    function test_mintSubUnit_type2_incrementsScore() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 1 (skip)
+        uint256 type2BaseId = baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.stopPrank();
+
+        vm.prank(alice);
+        subUnit.mintSubUnit(type2BaseId); // first slot → score 1
+
+        assertEq(subUnit.localScore(type2BaseId), 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // Completion — type 1 and type 2 reach isCompleted after filling all slots
+    // -------------------------------------------------------------------------
+
+    function test_completion_type1_setsCompletedTrue() public {
+        vm.prank(alice);
+        uint256 type1BaseId = baseUnit.mintBaseUnit(); // token 1 → type 1
+
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_1; i++) {
+            subUnit.mintSubUnit(type1BaseId);
+        }
+        vm.stopPrank();
+
+        assertTrue(subUnit.isCompleted(type1BaseId));
+    }
+
+    function test_completion_type2_setsCompletedTrue() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 1 (skip)
+        uint256 type2BaseId = baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_2; i++) {
+            subUnit.mintSubUnit(type2BaseId);
+        }
+        vm.stopPrank();
+
+        assertTrue(subUnit.isCompleted(type2BaseId));
+    }
+
+    // -------------------------------------------------------------------------
+    // getSubUnitsForBase — returned array contains the minted token ID
+    // -------------------------------------------------------------------------
+
+    function test_getSubUnitIds_containsMintedTokenId() public {
+        vm.prank(alice);
+        uint256 subId = subUnit.mintSubUnit(baseUnitId);
+
+        uint256[] memory ids = subUnit.getSubUnitsForBase(baseUnitId);
+        assertEq(ids.length, 1);
+        assertEq(ids[0], subId);
+    }
+
+    // -------------------------------------------------------------------------
+    // totalSubUnitsMinted — accurate across multiple distinct base tokens
+    // -------------------------------------------------------------------------
+
+    function test_totalSubUnitsMinted_acrossMultipleBases() public {
+        vm.prank(alice);
+        uint256 type1BaseId = baseUnit.mintBaseUnit(); // token 1 → type 1
+
+        vm.startPrank(alice);
+        subUnit.mintSubUnit(baseUnitId);  // base 0 → 1 sub
+        subUnit.mintSubUnit(type1BaseId); // base 1 → 1 sub
+        vm.stopPrank();
+
+        assertEq(subUnit.totalSubUnitsMinted(), 2);
+    }
+
+    // -------------------------------------------------------------------------
+    // subUnitCountPerBase — zero before any mint, accurate after partial fill
+    // -------------------------------------------------------------------------
+
+    function test_subUnitCountPerBase_zeroBeforeMint() public view {
+        assertEq(subUnit.subUnitCountPerBase(baseUnitId), 0);
+    }
+
+    function test_subUnitCountPerBase_partialFill_accurate() public {
+        vm.startPrank(alice);
+        subUnit.mintSubUnit(baseUnitId);
+        subUnit.mintSubUnit(baseUnitId);
+        vm.stopPrank();
+        assertEq(subUnit.subUnitCountPerBase(baseUnitId), 2);
+    }
 }
 
 // ---------------------------------------------------------------------------
