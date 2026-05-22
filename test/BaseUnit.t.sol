@@ -529,6 +529,172 @@ contract BaseUnitTest is Test {
         }
         vm.stopPrank();
     }
+
+    // -------------------------------------------------------------------------
+    // Immutable getter return values — all 9 constructor params
+    // -------------------------------------------------------------------------
+
+    function test_tbaImplementation_returnsConstructorValue() public view {
+        assertEq(baseUnit.TBA_IMPLEMENTATION(), STUB_TBA_IMPL);
+    }
+
+    function test_registry_returnsConstructorValue() public view {
+        assertEq(address(baseUnit.REGISTRY()), address(mockRegistry));
+    }
+
+    function test_subUnitLimit0_returnsConstructorValue() public view {
+        assertEq(baseUnit.TYPE_LIMIT_0(), LIMIT_0);
+    }
+
+    function test_subUnitLimit1_returnsConstructorValue() public view {
+        assertEq(baseUnit.TYPE_LIMIT_1(), LIMIT_1);
+    }
+
+    function test_subUnitLimit2_returnsConstructorValue() public view {
+        assertEq(baseUnit.TYPE_LIMIT_2(), LIMIT_2);
+    }
+
+    function test_maxSupply_returnsConstructorValue() public view {
+        assertEq(baseUnit.MAX_SUPPLY(), MAX_SUPPLY);
+    }
+
+    function test_maxWallet_returnsConstructorValue() public view {
+        assertEq(baseUnit.MAX_UNITS_PER_WALLET(), MAX_WALLET);
+    }
+
+    function test_mintPrice_returnsConstructorValue() public view {
+        assertEq(baseUnit.BASE_UNIT_PRICE(), 0);
+    }
+
+    function test_treasury_returnsConstructorValue() public view {
+        assertEq(baseUnit.TREASURY(), treasury);
+    }
+
+    // -------------------------------------------------------------------------
+    // Transfer — to TBA reverts, to non-TBA succeeds, TBA mapping preserved
+    // -------------------------------------------------------------------------
+
+    function test_transfer_toTba_reverts() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit();
+        address tba = baseUnit.getTba(tokenId);
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(CannotTransferToTBA.selector, tokenId, tba));
+        baseUnit.transferFrom(alice, tba, tokenId);
+    }
+
+    function test_transfer_toNonTba_succeeds() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit();
+
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, tokenId);
+
+        assertEq(baseUnit.ownerOf(tokenId), bob);
+    }
+
+    function test_transfer_tbaMappingPreserved() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit();
+        address tba = baseUnit.getTba(tokenId);
+
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, tokenId);
+
+        assertEq(baseUnit.getTba(tokenId), tba);
+    }
+
+    // -------------------------------------------------------------------------
+    // typeOf — all three types
+    // -------------------------------------------------------------------------
+
+    function test_typeOf_tokenZero_returnsType0() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 0 → 0 % 3 == 0
+        assertEq(baseUnit.typeOf(tokenId), 0);
+    }
+
+    function test_typeOf_tokenOne_returnsType1() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 0
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 1 → 1 % 3 == 1
+        vm.stopPrank();
+        assertEq(baseUnit.typeOf(tokenId), 1);
+    }
+
+    function test_typeOf_tokenTwo_returnsType2() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 0
+        baseUnit.mintBaseUnit(); // token 1
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 2 → 2 % 3 == 2
+        vm.stopPrank();
+        assertEq(baseUnit.typeOf(tokenId), 2);
+    }
+
+    // -------------------------------------------------------------------------
+    // subUnitLimitOf — routes to correct limit by type
+    // -------------------------------------------------------------------------
+
+    function test_subUnitLimitOf_type0_returnsLimit0() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 0 → type 0
+        assertEq(baseUnit.subUnitLimitOf(tokenId), LIMIT_0);
+    }
+
+    function test_subUnitLimitOf_type1_returnsLimit1() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 0
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 1 → type 1
+        vm.stopPrank();
+        assertEq(baseUnit.subUnitLimitOf(tokenId), LIMIT_1);
+    }
+
+    function test_subUnitLimitOf_type2_returnsLimit2() public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // token 0
+        baseUnit.mintBaseUnit(); // token 1
+        uint256 tokenId = baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.stopPrank();
+        assertEq(baseUnit.subUnitLimitOf(tokenId), LIMIT_2);
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-user — independent wallet limits and shared supply counter
+    // -------------------------------------------------------------------------
+
+    function test_mintBaseUnit_multipleUsers_eachReceivesDistinctToken() public {
+        vm.prank(alice);
+        uint256 aliceId = baseUnit.mintBaseUnit();
+        vm.prank(bob);
+        uint256 bobId = baseUnit.mintBaseUnit();
+
+        assertNotEq(aliceId, bobId);
+        assertEq(baseUnit.ownerOf(aliceId), alice);
+        assertEq(baseUnit.ownerOf(bobId), bob);
+    }
+
+    function test_walletLimit_isPerUser_notGlobal() public {
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < MAX_WALLET; i++) {
+            baseUnit.mintBaseUnit();
+        }
+        vm.stopPrank();
+
+        // alice is at wallet cap, bob should still mint freely
+        vm.prank(bob);
+        uint256 bobId = baseUnit.mintBaseUnit();
+        assertEq(baseUnit.ownerOf(bobId), bob);
+    }
+
+    function test_totalSupply_accumulatesAcrossUsers() public {
+        vm.prank(alice);
+        baseUnit.mintBaseUnit();
+        vm.prank(bob);
+        baseUnit.mintBaseUnit();
+
+        assertEq(baseUnit.totalSupply(), 2);
+    }
 }
 
 // ---------------------------------------------------------------------------
