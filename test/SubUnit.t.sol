@@ -62,6 +62,12 @@ contract SubUnitTest is Test {
         assertEq(subUnit.ownerOf(subUnitId), aliceTba);
     }
 
+    function test_mintSubUnit_firstSubUnitIdIsZero() public {
+        vm.prank(alice);
+        uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
+        assertEq(subUnitId, 0);
+    }
+
     function test_mintSubUnit_recordsParent() public {
         vm.prank(alice);
         uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
@@ -72,6 +78,20 @@ contract SubUnitTest is Test {
         vm.prank(alice);
         subUnit.mintSubUnit(baseUnitId);
         assertEq(subUnit.subUnitCountPerBase(baseUnitId), 1);
+    }
+
+    function test_mintSubUnit_subUnitIdsSequential() public {
+        vm.prank(bob);
+        uint256 bobBaseId = baseUnit.mintBaseUnit(); // token 1
+        vm.prank(alice);
+        uint256 id0 = subUnit.mintSubUnit(baseUnitId);
+        vm.prank(bob);
+        uint256 id1 = subUnit.mintSubUnit(bobBaseId);
+        vm.prank(alice);
+        uint256 id2 = subUnit.mintSubUnit(baseUnitId);
+        assertEq(id0, 0);
+        assertEq(id1, 1);
+        assertEq(id2, 2);
     }
 
     function test_mintSubUnit_fillsSlots() public {
@@ -144,6 +164,21 @@ contract SubUnitTest is Test {
         subUnit.transferFrom(aliceTba, bob, subUnitId);
     }
 
+    function test_mint_subUnit_passesUpdate() public {
+        // _ownerOf returns address(0) at mint time — guard passes, mint succeeds
+        vm.prank(alice);
+        uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
+        assertEq(subUnit.ownerOf(subUnitId), aliceTba);
+    }
+
+    function test_burn_subUnit_reverts() public {
+        vm.prank(alice);
+        uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
+        vm.prank(aliceTba);
+        vm.expectRevert();
+        subUnit.transferFrom(aliceTba, address(0), subUnitId);
+    }
+
     // -------------------------------------------------------------------------
     // Global ID uniqueness
     // -------------------------------------------------------------------------
@@ -205,6 +240,14 @@ contract SubUnitTest is Test {
         subUnit.getParentBaseUnit(999);
     }
 
+    function test_getParentBaseUnit_unchangedAfterBaseTransfer() public {
+        vm.prank(alice);
+        uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.getParentBaseUnit(subUnitId), baseUnitId);
+    }
+
     // -------------------------------------------------------------------------
     // Local scoring — position-based
     // -------------------------------------------------------------------------
@@ -228,6 +271,17 @@ contract SubUnitTest is Test {
         }
     }
 
+    function test_subUnitScore_immutablePostMint() public {
+        vm.prank(alice);
+        uint256 firstId = subUnit.mintSubUnit(baseUnitId); // slot 1 → score 1
+        uint256 scoreBefore = subUnit.subUnitScore(firstId);
+        vm.startPrank(alice);
+        subUnit.mintSubUnit(baseUnitId); // slot 2
+        subUnit.mintSubUnit(baseUnitId); // slot 3
+        vm.stopPrank();
+        assertEq(subUnit.subUnitScore(firstId), scoreBefore);
+    }
+
     function test_localScore_empty() public view {
         assertEq(subUnit.localScore(999), 0);
     }
@@ -249,6 +303,22 @@ contract SubUnitTest is Test {
         // LIMIT_0=4: 1+2+3+4 = 10
         uint256 expected = (LIMIT_0 * (LIMIT_0 + 1)) / 2;
         assertEq(subUnit.localScore(baseUnitId), expected);
+    }
+
+    // -------------------------------------------------------------------------
+    // localScore — C-6: Ownership transitions
+    // -------------------------------------------------------------------------
+
+    function test_localScore_unchangedAfterBaseTransfer() public {
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_0; i++) {
+            subUnit.mintSubUnit(baseUnitId);
+        }
+        vm.stopPrank();
+        uint256 scoreBefore = subUnit.localScore(baseUnitId);
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.localScore(baseUnitId), scoreBefore);
     }
 
     // -------------------------------------------------------------------------
@@ -290,6 +360,33 @@ contract SubUnitTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // globalScore — C-6: Ownership transitions
+    // -------------------------------------------------------------------------
+
+    function test_globalScore_excludesTransferredBase() public {
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_0; i++) {
+            subUnit.mintSubUnit(baseUnitId);
+        }
+        vm.stopPrank();
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.globalScore(alice), 0);
+    }
+
+    function test_globalScore_newOwnerGainsScore() public {
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_0; i++) {
+            subUnit.mintSubUnit(baseUnitId);
+        }
+        vm.stopPrank();
+        uint256 score = subUnit.localScore(baseUnitId);
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.globalScore(bob), score);
+    }
+
+    // -------------------------------------------------------------------------
     // BaseUnitCompleted event
     // -------------------------------------------------------------------------
 
@@ -320,6 +417,44 @@ contract SubUnitTest is Test {
                 assertNotEq(logs[i].topics[0], sig, "BaseUnitCompleted must not fire on partial fill");
             }
         }
+    }
+
+    function test_BaseUnitCompleted_type2_emitted() public {
+        vm.prank(alice);
+        baseUnit.mintBaseUnit(); // token 1 → type 1 (skip)
+        vm.prank(alice);
+        uint256 type2BaseId = baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_2 - 1; i++) {
+            subUnit.mintSubUnit(type2BaseId);
+        }
+        uint256 expectedScore = (LIMIT_2 * (LIMIT_2 + 1)) / 2;
+        vm.expectEmit(true, true, false, true);
+        emit BaseUnitCompleted(type2BaseId, alice, expectedScore);
+        subUnit.mintSubUnit(type2BaseId);
+        vm.stopPrank();
+    }
+
+    function test_eventOrdering_completedBeforeMinted() public {
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_0 - 1; i++) {
+            subUnit.mintSubUnit(baseUnitId);
+        }
+        vm.stopPrank();
+        vm.recordLogs();
+        vm.prank(alice);
+        subUnit.mintSubUnit(baseUnitId); // final slot — fires both events
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 completedSig = keccak256("BaseUnitCompleted(uint256,address,uint256)");
+        bytes32 mintedSig = keccak256("SubUnitMinted(uint256,uint256,address,uint256)");
+        uint256 completedIndex = type(uint256).max;
+        uint256 mintedIndex = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == completedSig) completedIndex = i;
+            if (logs[i].topics[0] == mintedSig) mintedIndex = i;
+        }
+        assertLt(completedIndex, mintedIndex, "BaseUnitCompleted must fire before SubUnitMinted");
     }
 
     // -------------------------------------------------------------------------
@@ -550,6 +685,26 @@ contract SubUnitTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // mintSubUnit — C-6: Ownership transitions
+    // -------------------------------------------------------------------------
+
+    function test_mintSubUnit_newOwnerAfterTransfer_canMint() public {
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        vm.prank(bob);
+        uint256 subUnitId = subUnit.mintSubUnit(baseUnitId);
+        assertEq(subUnit.ownerOf(subUnitId), baseUnit.getTba(baseUnitId));
+    }
+
+    function test_mintSubUnit_originalOwnerAfterTransfer_reverts() public {
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(NotBaseUnitOwner.selector, alice, baseUnitId));
+        subUnit.mintSubUnit(baseUnitId);
+    }
+
+    // -------------------------------------------------------------------------
     // totalSubUnitsOwned
     // -------------------------------------------------------------------------
 
@@ -585,6 +740,30 @@ contract SubUnitTest is Test {
     }
 
     // -------------------------------------------------------------------------
+    // totalSubUnitsOwned — C-6: Ownership transitions
+    // -------------------------------------------------------------------------
+
+    function test_totalSubUnitsOwned_excludesTransferredBase() public {
+        vm.startPrank(alice);
+        subUnit.mintSubUnit(baseUnitId);
+        subUnit.mintSubUnit(baseUnitId);
+        vm.stopPrank();
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.totalSubUnitsOwned(alice), 0);
+    }
+
+    function test_totalSubUnitsOwned_newOwnerGainsCount() public {
+        vm.startPrank(alice);
+        subUnit.mintSubUnit(baseUnitId);
+        subUnit.mintSubUnit(baseUnitId);
+        vm.stopPrank();
+        vm.prank(alice);
+        baseUnit.transferFrom(alice, bob, baseUnitId);
+        assertEq(subUnit.totalSubUnitsOwned(bob), 2);
+    }
+
+    // -------------------------------------------------------------------------
     // maxLocalScore
     // -------------------------------------------------------------------------
 
@@ -601,6 +780,11 @@ contract SubUnitTest is Test {
     function test_maxLocalScore_type2() public view {
         // token 2 → type 2, limit 8 → max = 1+2+3+4+5+6+7+8 = 36
         assertEq(subUnit.maxLocalScore(2), 36);
+    }
+
+    function testFuzz_maxLocalScore_triangularFormula(uint256 tokenId) public view {
+        uint256 limit = baseUnit.subUnitLimitOf(tokenId);
+        assertEq(subUnit.maxLocalScore(tokenId), (limit * (limit + 1)) / 2);
     }
 
     // -------------------------------------------------------------------------
@@ -663,6 +847,14 @@ contract SubUnitTest is Test {
         assertNotEq(hashAtFill1, hashAtFill2);
     }
 
+    function test_tokenURI_subUnit_outputIsStable() public {
+        vm.prank(alice);
+        uint256 subId = subUnit.mintSubUnit(baseUnitId);
+        bytes32 hash1 = keccak256(bytes(subUnit.tokenURI(subId)));
+        bytes32 hash2 = keccak256(bytes(subUnit.tokenURI(subId)));
+        assertEq(hash1, hash2);
+    }
+
     // -------------------------------------------------------------------------
     // totalCompleted counter
     // -------------------------------------------------------------------------
@@ -703,6 +895,19 @@ contract SubUnitTest is Test {
         vm.stopPrank();
 
         assertEq(subUnit.totalCompleted(), 2);
+    }
+
+    function test_totalCompleted_type2_increment() public {
+        vm.prank(alice);
+        baseUnit.mintBaseUnit(); // token 1 → type 1 (skip)
+        vm.prank(alice);
+        uint256 type2BaseId = baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.startPrank(alice);
+        for (uint256 i = 0; i < LIMIT_2; i++) {
+            subUnit.mintSubUnit(type2BaseId);
+        }
+        vm.stopPrank();
+        assertEq(subUnit.totalCompleted(), 1);
     }
 
     // -------------------------------------------------------------------------
@@ -880,6 +1085,14 @@ contract SubUnitTest is Test {
         assertEq(subUnit.TREASURY(), treasury);
     }
 
+    function test_name_returnsCorrectValue() public view {
+        assertEq(subUnit.name(), "AYA-BLOX-6551-SUB");
+    }
+
+    function test_symbol_returnsCorrectValue() public view {
+        assertEq(subUnit.symbol(), "BLOX-S");
+    }
+
     // -------------------------------------------------------------------------
     // Score and completion — fresh state and per-type increment
     // -------------------------------------------------------------------------
@@ -890,6 +1103,10 @@ contract SubUnitTest is Test {
 
     function test_isCompleted_freshBase_returnsFalse() public view {
         assertFalse(subUnit.isCompleted(baseUnitId));
+    }
+
+    function test_isCompleted_unmintedBaseId_returnsFalse() public view {
+        assertFalse(subUnit.isCompleted(999));
     }
 
     function test_mintSubUnit_type1_incrementsScore() public {
