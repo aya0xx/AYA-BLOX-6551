@@ -201,4 +201,35 @@ contract BaseUnitInvariantTest is Test {
     function invariant_enumerationConsistency() public view {
         assertEq(baseUnit.totalSupply(), handler.mintedCount(), "B-7: totalSupply diverges from ghost mint count");
     }
+
+    // -------------------------------------------------------------------------
+    // B-8 — Burn prevention: ownerOf(id) != address(0) for all minted IDs
+    // -------------------------------------------------------------------------
+    // BaseUnit._update() reverts with BaseUnitNonBurnable when to == address(0).
+    // This invariant confirms no minted base unit can ever reach a burned state
+    // under arbitrary mint and transfer sequences.
+
+    function invariant_noMintedTokenIsBurned() public view {
+        uint256 count = handler.mintedCount();
+        for (uint256 i = 0; i < count; i++) {
+            uint256 tokenId = handler.ghost_mintedIds(i);
+            assertNotEq(baseUnit.ownerOf(tokenId), address(0), "B-8: minted base unit has zero owner");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // B-9 — Sequential IDs: every ghost ID is in [0, totalSupply()-1]
+    // -------------------------------------------------------------------------
+    // Token IDs are assigned via a pre-increment counter starting at 0.
+    // All minted IDs must fall in [0, totalSupply()-1]. A gap or skip would
+    // indicate a counter bug or an unreachable mint path that bypasses the ghost.
+
+    function invariant_tokenIdsAreSequential() public view {
+        uint256 supply = baseUnit.totalSupply();
+        uint256 count = handler.mintedCount();
+        for (uint256 i = 0; i < count; i++) {
+            uint256 tokenId = handler.ghost_mintedIds(i);
+            assertLt(tokenId, supply, "B-9: ghost token ID outside [0, totalSupply()-1]");
+        }
+    }
 }

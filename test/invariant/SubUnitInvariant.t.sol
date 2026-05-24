@@ -22,6 +22,9 @@ contract InvariantHandler is Test {
     // forge-lint: disable-next-line(mixed-case-variable)
     uint256[] public ghost_mintedBaseIds;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
+    uint256 public ghost_maxTotalCompleted;
+
     uint256 internal constant MAX_WALLET = 5;
     uint256 internal constant MAX_SUPPLY = 50;
 
@@ -61,6 +64,8 @@ contract InvariantHandler is Test {
         address owner = baseUnit.ownerOf(baseId);
         vm.prank(owner);
         subUnit.mintSubUnit(baseId);
+        uint256 current = subUnit.totalCompleted();
+        if (current > ghost_maxTotalCompleted) ghost_maxTotalCompleted = current;
     }
 
     /// @dev Transfer a base unit between actors.
@@ -307,5 +312,50 @@ contract SubUnitInvariantTest is Test {
 
     function invariant_mintPriceIsImmutable() public view {
         assertEq(subUnit.SUB_UNIT_PRICE(), 0, "I-12: SUB_UNIT_PRICE changed from deploy-time value");
+    }
+
+    // -------------------------------------------------------------------------
+    // I-13 — Sub unit score immutability: subUnitScore[subId] == slot position
+    // -------------------------------------------------------------------------
+    // Score is written once at mint as subUnitCountPerBase + 1 (1-indexed position).
+    // For the j-th sub unit in a base (0-indexed), score must equal j+1.
+    // If any score is overwritten or misassigned, this invariant fails.
+
+    function invariant_subUnitScoreEqualsPosition() public view {
+        uint256 count = handler.mintedBaseCount();
+        for (uint256 i = 0; i < count; i++) {
+            uint256 baseId = handler.ghost_mintedBaseIds(i);
+            uint256 filled = subUnit.subUnitCountPerBase(baseId);
+            for (uint256 j = 0; j < filled; j++) {
+                uint256 subId = subUnit.subUnitOfBaseByIndex(baseId, j);
+                assertEq(subUnit.subUnitScore(subId), j + 1, "I-13: sub unit score does not equal slot position");
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // I-14 — Parent mapping integrity: getParentBaseUnit always returns a minted base ID
+    // -------------------------------------------------------------------------
+    // _parentBaseUnit is set once at mint and never updated. If it ever points
+    // to an unminted base (getTba returns address(0)), the game loop is broken —
+    // the sub unit has no valid TBA home and indexers cannot resolve its parent.
+
+    function invariant_parentAlwaysMintedBase() public view {
+        uint256 totalSubs = subUnit.totalSubUnitsMinted();
+        for (uint256 subId = 0; subId < totalSubs; subId++) {
+            uint256 parentId = subUnit.getParentBaseUnit(subId);
+            assertNotEq(baseUnit.getTba(parentId), address(0), "I-14: parent base unit is not minted");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // I-15 — Completion counter monotonicity: totalCompleted never decreases
+    // -------------------------------------------------------------------------
+    // totalCompleted is incremented in mintSubUnit when a base fills its final slot.
+    // There is no decrement path. ghost_maxTotalCompleted tracks the historical
+    // maximum. If totalCompleted ever falls below it, state has been corrupted.
+
+    function invariant_totalCompletedNeverDecreases() public view {
+        assertGe(subUnit.totalCompleted(), handler.ghost_maxTotalCompleted(), "I-15: totalCompleted decreased");
     }
 }
