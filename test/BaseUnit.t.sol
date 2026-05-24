@@ -131,12 +131,35 @@ contract BaseUnitTest is Test {
         assertTrue(baseUnit.isTba(baseUnit.getTba(id1)));
     }
 
+    function test_isTba_returnsFalseForNonTbaContract() public view {
+        assertFalse(baseUnit.isTba(address(baseUnit)));
+    }
+
+    function test_isTba_returnsFalseBeforeMint() public {
+        address expectedTba = mockRegistry.account(STUB_TBA_IMPL, bytes32(0), block.chainid, address(baseUnit), 0);
+        assertFalse(baseUnit.isTba(expectedTba));
+        vm.prank(alice);
+        baseUnit.mintBaseUnit();
+        assertTrue(baseUnit.isTba(expectedTba));
+    }
+
     // -------------------------------------------------------------------------
     // getTba — dedicated view tests
     // -------------------------------------------------------------------------
 
     function test_getTba_unminted_returnsZero() public view {
         assertEq(baseUnit.getTba(999), address(0));
+    }
+
+    function test_getTba_multipleTokens_eachCorrect() public {
+        vm.startPrank(alice);
+        uint256 id0 = baseUnit.mintBaseUnit();
+        uint256 id1 = baseUnit.mintBaseUnit();
+        uint256 id2 = baseUnit.mintBaseUnit();
+        vm.stopPrank();
+        assertEq(baseUnit.getTba(id0), mockRegistry.account(STUB_TBA_IMPL, bytes32(0), block.chainid, address(baseUnit), id0));
+        assertEq(baseUnit.getTba(id1), mockRegistry.account(STUB_TBA_IMPL, bytes32(0), block.chainid, address(baseUnit), id1));
+        assertEq(baseUnit.getTba(id2), mockRegistry.account(STUB_TBA_IMPL, bytes32(0), block.chainid, address(baseUnit), id2));
     }
 
     // -------------------------------------------------------------------------
@@ -259,6 +282,14 @@ contract BaseUnitTest is Test {
 
     function test_supportsInterface_erc721Enumerable() public view {
         assertTrue(baseUnit.supportsInterface(type(IERC721Enumerable).interfaceId));
+    }
+
+    function test_supportsInterface_erc165() public view {
+        assertTrue(baseUnit.supportsInterface(0x01ffc9a7));
+    }
+
+    function test_supportsInterface_invalidId_returnsFalse() public view {
+        assertFalse(baseUnit.supportsInterface(0xdeadbeef));
     }
 
     // -------------------------------------------------------------------------
@@ -462,6 +493,47 @@ contract BaseUnitTest is Test {
         assertEq(baseUnit.typeBalanceOf(alice, 1), 1); // unaffected
     }
 
+    function test_typeBalanceOf_zeroAddress_reverts() public {
+        vm.expectRevert();
+        baseUnit.typeBalanceOf(address(0), 0);
+    }
+
+    function test_typeBalanceOf_allSameType() public {
+        address carol = makeAddr("carol");
+        // Mint tokens 0, 3, 6 for alice (all type 0)
+        // carol mints tokens 1, 2 and 4, 5 in between to advance the counter
+        vm.prank(alice); baseUnit.mintBaseUnit(); // token 0 → type 0
+        vm.startPrank(carol);
+        baseUnit.mintBaseUnit(); // token 1 → type 1
+        baseUnit.mintBaseUnit(); // token 2 → type 2
+        vm.stopPrank();
+        vm.prank(alice); baseUnit.mintBaseUnit(); // token 3 → type 0
+        vm.startPrank(carol);
+        baseUnit.mintBaseUnit(); // token 4 → type 1
+        baseUnit.mintBaseUnit(); // token 5 → type 2
+        vm.stopPrank();
+        vm.prank(alice); baseUnit.mintBaseUnit(); // token 6 → type 0
+
+        assertEq(baseUnit.typeBalanceOf(alice, 0), 3);
+        assertEq(baseUnit.typeBalanceOf(alice, 1), 0);
+        assertEq(baseUnit.typeBalanceOf(alice, 2), 0);
+    }
+
+    function test_typeBalanceOf_invalidType_returnsZero() public {
+        vm.prank(alice);
+        baseUnit.mintBaseUnit(); // token 0 → type 0
+        assertEq(baseUnit.typeBalanceOf(alice, 3), 0);
+    }
+
+    function testFuzz_typeBalanceOf_neverExceedsBalance(uint8 unitType) public {
+        vm.startPrank(alice);
+        baseUnit.mintBaseUnit(); // type 0
+        baseUnit.mintBaseUnit(); // type 1
+        baseUnit.mintBaseUnit(); // type 2
+        vm.stopPrank();
+        assertLe(baseUnit.typeBalanceOf(alice, unitType), baseUnit.balanceOf(alice));
+    }
+
     // -------------------------------------------------------------------------
     // tokenURI — on-chain SVG metadata
     // -------------------------------------------------------------------------
@@ -513,6 +585,26 @@ contract BaseUnitTest is Test {
         assertNotEq(hash0, hash2);
     }
 
+    function test_tokenURI_baseUnit_outputIsStatic() public {
+        vm.prank(alice);
+        uint256 id = baseUnit.mintBaseUnit();
+        bytes32 hash1 = keccak256(bytes(baseUnit.tokenURI(id)));
+        bytes32 hash2 = keccak256(bytes(baseUnit.tokenURI(id)));
+        assertEq(hash1, hash2);
+    }
+
+    function test_tokenURI_baseUnit_slotCountReflectedAcrossTypes() public {
+        vm.startPrank(alice);
+        uint256 id0 = baseUnit.mintBaseUnit(); // type 0, LIMIT_0 = 4 slots
+        baseUnit.mintBaseUnit();               // type 1 (skip)
+        uint256 id2 = baseUnit.mintBaseUnit(); // type 2, LIMIT_2 = 8 slots
+        vm.stopPrank();
+        assertNotEq(
+            keccak256(bytes(baseUnit.tokenURI(id0))),
+            keccak256(bytes(baseUnit.tokenURI(id2)))
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Fuzz — gas target (updated: 300k accounts for ERC721Enumerable overhead)
     // -------------------------------------------------------------------------
@@ -528,6 +620,31 @@ contract BaseUnitTest is Test {
             assertLt(gasUsed, 300_000, "mintBaseUnit exceeds 300k gas target");
         }
         vm.stopPrank();
+    }
+
+    function test_mintBaseUnit_firstTokenIdIsZero() public {
+        vm.prank(alice);
+        uint256 id = baseUnit.mintBaseUnit();
+        assertEq(id, 0);
+    }
+
+    function test_mintBaseUnit_tokenIdsSequential() public {
+        vm.startPrank(alice);
+        uint256 id0 = baseUnit.mintBaseUnit();
+        uint256 id1 = baseUnit.mintBaseUnit();
+        uint256 id2 = baseUnit.mintBaseUnit();
+        vm.stopPrank();
+        assertEq(id0, 0);
+        assertEq(id1, 1);
+        assertEq(id2, 2);
+    }
+
+    function test_mintBaseUnit_freeMint_noTreasuryForward() public {
+        // setUp deploys with BASE_UNIT_PRICE = 0; treasury call is skipped
+        uint256 before = treasury.balance;
+        vm.prank(alice);
+        baseUnit.mintBaseUnit();
+        assertEq(treasury.balance, before);
     }
 
     // -------------------------------------------------------------------------
@@ -570,6 +687,21 @@ contract BaseUnitTest is Test {
         assertEq(baseUnit.TREASURY(), treasury);
     }
 
+    function test_name_returnsCorrectValue() public view {
+        assertEq(baseUnit.name(), "AYA-BLOX-6551");
+    }
+
+    function test_symbol_returnsCorrectValue() public view {
+        assertEq(baseUnit.symbol(), "BLOX");
+    }
+
+    function test_constructor_nonZeroPriceStored() public {
+        BaseUnit pricedBase = new BaseUnit(
+            STUB_TBA_IMPL, address(mockRegistry), LIMIT_0, LIMIT_1, LIMIT_2, MAX_SUPPLY, MAX_WALLET, 0.01 ether, treasury
+        );
+        assertEq(pricedBase.BASE_UNIT_PRICE(), 0.01 ether);
+    }
+
     // -------------------------------------------------------------------------
     // Transfer — to TBA reverts, to non-TBA succeeds, TBA mapping preserved
     // -------------------------------------------------------------------------
@@ -605,6 +737,29 @@ contract BaseUnitTest is Test {
         assertEq(baseUnit.getTba(tokenId), tba);
     }
 
+    function test_safeTransferFrom_toTba_reverts() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit();
+        address tba = baseUnit.getTba(tokenId);
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(CannotTransferToTBA.selector, tokenId, tba));
+        baseUnit.safeTransferFrom(alice, tba, tokenId);
+    }
+
+    function test_transfer_approvedOperator_succeeds() public {
+        vm.prank(alice);
+        uint256 tokenId = baseUnit.mintBaseUnit();
+
+        vm.prank(alice);
+        baseUnit.approve(bob, tokenId);
+
+        vm.prank(bob);
+        baseUnit.transferFrom(alice, bob, tokenId);
+
+        assertEq(baseUnit.ownerOf(tokenId), bob);
+    }
+
     // -------------------------------------------------------------------------
     // typeOf — all three types
     // -------------------------------------------------------------------------
@@ -632,6 +787,10 @@ contract BaseUnitTest is Test {
         assertEq(baseUnit.typeOf(tokenId), 2);
     }
 
+    function testFuzz_typeOf_alwaysZeroOneOrTwo(uint256 tokenId) public view {
+        assertTrue(baseUnit.typeOf(tokenId) <= 2);
+    }
+
     // -------------------------------------------------------------------------
     // subUnitLimitOf — routes to correct limit by type
     // -------------------------------------------------------------------------
@@ -657,6 +816,25 @@ contract BaseUnitTest is Test {
         uint256 tokenId = baseUnit.mintBaseUnit(); // token 2 → type 2
         vm.stopPrank();
         assertEq(baseUnit.subUnitLimitOf(tokenId), LIMIT_2);
+    }
+
+    function test_subUnitLimitOf_unmintedId_safeToCall() public view {
+        // 999 % 3 == 0 → LIMIT_0; no ownership check, no revert
+        assertEq(baseUnit.subUnitLimitOf(999), LIMIT_0);
+    }
+
+    function test_subUnitLimitOf_wrapAround() public view {
+        assertEq(baseUnit.subUnitLimitOf(3), LIMIT_0); // 3 % 3 == 0
+        assertEq(baseUnit.subUnitLimitOf(4), LIMIT_1); // 4 % 3 == 1
+        assertEq(baseUnit.subUnitLimitOf(5), LIMIT_2); // 5 % 3 == 2
+    }
+
+    function testFuzz_subUnitLimitOf_routingCorrect(uint256 tokenId) public view {
+        uint256 result = baseUnit.subUnitLimitOf(tokenId);
+        uint256 t = tokenId % 3;
+        if (t == 0) assertEq(result, LIMIT_0);
+        else if (t == 1) assertEq(result, LIMIT_1);
+        else assertEq(result, LIMIT_2);
     }
 
     // -------------------------------------------------------------------------
