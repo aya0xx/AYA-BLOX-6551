@@ -4,6 +4,7 @@ ERC-6551 game loop: mint an NFT to deploy its Token-Bound Account wallet,
 fill it with scored Sub Units, and transfer everything to a new owner in one transaction.
 
 [![CI](https://github.com/aya0xx/AYA-BLOX-6551/actions/workflows/ci.yml/badge.svg)](https://github.com/aya0xx/AYA-BLOX-6551/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/aya0xx/AYA-BLOX-6551/branch/main/graph/badge.svg)](https://codecov.io/gh/aya0xx/AYA-BLOX-6551)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.27-363636?logo=solidity)](https://soliditylang.org)
 [![Network](https://img.shields.io/badge/Network-Base%20Mainnet-0052FF)](https://base.org)
